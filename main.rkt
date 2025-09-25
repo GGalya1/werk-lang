@@ -7,15 +7,16 @@
   [multC (l : ArithC) (r : ArithC)]
 )
 
-(define (parse [s : s-expression]) : ArithC
+(define (parse [s : s-expression]) : ArithS
   (cond
-    [(s-exp-number? s) (numC (s-exp->number s))]
+    [(s-exp-number? s) (numS (s-exp->number s))]
     
     [(s-exp-list? s)
      (let ([sl (s-exp->list s)])
        (case (s-exp->symbol (first sl))
-         [(+) (plusC (parse (second sl)) (parse (third sl)))]
-         [(*) (multC (parse (second sl)) (parse (third sl)))]
+         [(+) (plusS (parse (second sl)) (parse (third sl)))]
+         [(*) (multS (parse (second sl)) (parse (third sl)))]
+         [(-) (bminusS (parse (second sl)) (parse (third sl)))]
          [else (error 'parse "invalid list input")]))]
     
     [else (error 'parse "invalid input")]
@@ -38,6 +39,7 @@
   [plusS (l : ArithS) (r : ArithS)]
   [bminusS (l : ArithS) (r : ArithS)]
   [multS (l : ArithS) (r : ArithS)]
+;  [uminusS (e : ArithS)]
 )
 
 (define (desugar [as : ArithS]) : ArithC
@@ -46,6 +48,7 @@
     [plusS (l r) (plusC (desugar l) (desugar r))]
     [multS (l r) (multC (desugar l) (desugar r))]
     [bminusS (l r) (plusC (desugar l) (multC (numC -1) (desugar r)))]
+;    [uminusS (e) (bminusS (numS 0) (desugar e))]
   )
 )
 
@@ -60,11 +63,11 @@
 
 ;; entry point/ pipeline
 (define (run [sexp : s-expression]) : number
-  (interp (parse sexp)))
+  (interp ( desugar (parse sexp))))
 
 ;; tests
 (test (run '(+ 1 2)) 3)                           
 (test (run '(* 2 3)) 6)                          
-;(test (run '(- 5 2)) 3)                           
-;(test (run '(- (* 2 3) (+ 1 4))) 1)               
+(test (run '(- 5 2)) 3)                           
+(test (run '(- (* 2 3) (+ 1 4))) 1)               
 (test (run '(+ (* 2 (+ 3 4)) (* 10 6))) 74)     
