@@ -1,5 +1,6 @@
 #lang plai-typed
 
+;; ===================== CORE LANGUAGE =====================
 ;; this is a core of the language. We need "desugar" to add more operations
 (define-type ArithC
   [numC (n : number)]
@@ -7,6 +8,9 @@
   [multC (l : ArithC) (r : ArithC)]
 )
 
+
+;; ======================== PARSER =====================
+;; converts an s-expression into the surface language (ArithS).
 (define (parse [s : s-expression]) : ArithS
   (cond
     [(s-exp-number? s) (numS (s-exp->number s))]
@@ -27,6 +31,9 @@
   )
 )
 
+
+;; ===================== INTERPRETER ====================
+;; evaluates the core language ArithC into a number.
 (define (interp [a : ArithC]) : number
   (type-case ArithC a
     [numC (n) n]
@@ -37,7 +44,7 @@
 
 
 
-;; here starts desugaring
+;; ================== SURFACE LANGUAGE =================
 (define-type ArithS
   [numS (n : number)]
   [plusS (l : ArithS) (r : ArithS)]
@@ -45,7 +52,7 @@
   [multS (l : ArithS) (r : ArithS)]
   [uminusS (e : ArithS)]
 )
-
+;; ====================== DESUGAR =====================
 (define (desugar [as : ArithS]) : ArithC
   (type-case ArithS as
     [numS (n) (numC n)]
@@ -61,19 +68,19 @@
 ;;  [fdC (name : symbol) (arg : symbol) (body : ExprC)])
 
 
-
-
-;; ===================================================
-
-;; entry point/ pipeline
+;; ================= PIPELINE / ENTRY POINT =================
 (define (run [sexp : s-expression]) : number
   (interp ( desugar (parse sexp))))
 
-;; tests
+
+;; ======================== TESTS ===========================
+;; tests for basic arithmetic operation
 (test (run '(+ 1 2)) 3)                           
 (test (run '(* 2 3)) 6)                          
-(test (run '(- 5 2)) 3)                           
+(test (run '(- 5 2)) 3)
+(test (run '(- 7)) -7)
+
+;; tests for complicated arithmetic expressions
 (test (run '(- (* 2 3) (+ 1 4))) 1)               
 (test (run '(+ (* 2 (+ 3 4)) (* 10 6))) 74)
-(test (run '(- 7)) -7)
 (test (run '(- (* (* 1 1) (+ 3 2)))) -5)
