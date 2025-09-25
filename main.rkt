@@ -16,7 +16,11 @@
        (case (s-exp->symbol (first sl))
          [(+) (plusS (parse (second sl)) (parse (third sl)))]
          [(*) (multS (parse (second sl)) (parse (third sl)))]
-         [(-) (bminusS (parse (second sl)) (parse (third sl)))]
+         [(-) (cond
+                [(= (length (rest sl)) 1) (uminusS (parse (second sl)))]
+                [else (bminusS (parse (second sl)) (parse (third sl)))]
+
+                )]
          [else (error 'parse "invalid list input")]))]
     
     [else (error 'parse "invalid input")]
@@ -39,7 +43,7 @@
   [plusS (l : ArithS) (r : ArithS)]
   [bminusS (l : ArithS) (r : ArithS)]
   [multS (l : ArithS) (r : ArithS)]
-;  [uminusS (e : ArithS)]
+  [uminusS (e : ArithS)]
 )
 
 (define (desugar [as : ArithS]) : ArithC
@@ -48,7 +52,7 @@
     [plusS (l r) (plusC (desugar l) (desugar r))]
     [multS (l r) (multC (desugar l) (desugar r))]
     [bminusS (l r) (plusC (desugar l) (multC (numC -1) (desugar r)))]
-;    [uminusS (e) (bminusS (numS 0) (desugar e))]
+    [uminusS (e) (multC (numC -1) (desugar e))]
   )
 )
 
@@ -70,4 +74,6 @@
 (test (run '(* 2 3)) 6)                          
 (test (run '(- 5 2)) 3)                           
 (test (run '(- (* 2 3) (+ 1 4))) 1)               
-(test (run '(+ (* 2 (+ 3 4)) (* 10 6))) 74)     
+(test (run '(+ (* 2 (+ 3 4)) (* 10 6))) 74)
+(test (run '(- 7)) -7)
+(test (run '(- (* (* 1 1) (+ 3 2)))) -5)
