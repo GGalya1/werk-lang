@@ -25,6 +25,7 @@
                 [else (bminusS (parse (second sl)) (parse (third sl)))]
 
                 )]
+         [(if) (ifS (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
          [else (error 'parse "invalid list input")]))]
     
     [else (error 'parse "invalid input")]
@@ -51,6 +52,7 @@
   [bminusS (l : ArithS) (r : ArithS)]
   [multS (l : ArithS) (r : ArithS)]
   [uminusS (e : ArithS)]
+  [ifS (guard : ArithS) (tCase : ArithS) (fCase : ArithS)]
 )
 ;; ====================== DESUGAR =====================
 (define (desugar [as : ArithS]) : ArithC
@@ -60,6 +62,7 @@
     [multS (l r) (multC (desugar l) (desugar r))]
     [bminusS (l r) (plusC (desugar l) (multC (numC -1) (desugar r)))]
     [uminusS (e) (multC (numC -1) (desugar e))]
+    [ifS (g t e) (if (zero? (interp (desugar g))) (desugar t) (desugar e))]
   )
 )
 
@@ -84,3 +87,11 @@
 (test (run '(- (* 2 3) (+ 1 4))) 1)               
 (test (run '(+ (* 2 (+ 3 4)) (* 10 6))) 74)
 (test (run '(- (* (* 1 1) (+ 3 2)))) -5)
+
+;; tests for conditionals
+(test (run '1) 1)
+(test (run '(if 0 1 2)) 1)
+(test (run '(if 9 1 2)) 2)
+(test (run '(if 0 (* 2 3) 2)) 6)
+(test (run '(if -1 1 (* 2 3))) 6)
+(test (run '(if (- (* 2 3) (+ 1 4)) (- (- 1)) (- (- 2)))) 2)
