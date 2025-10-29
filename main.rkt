@@ -105,14 +105,14 @@
     [multS (l r) (multC (desugar l) (desugar r))]
     [bminusS (l r) (plusC (desugar l) (multC (numC -1) (desugar r)))]
     [uminusS (e) (multC (numC -1) (desugar e))]
-    [ifS (g t e) (if (zero? (interp (desugar g))) (desugar t) (desugar e))]
+    [ifS (g t e) (if (zero? (interp (desugar g) empty)) (desugar t) (desugar e))]
   )
 )
 
 
 ;; ================= PIPELINE / ENTRY POINT =================
 (define (run [sexp : s-expression]) : number
-  (interp ( desugar (parse sexp))))
+  (interp ( desugar (parse sexp)) empty))
 
 
 ;; ======================== TESTS ===========================
