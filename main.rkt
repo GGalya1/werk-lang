@@ -2,12 +2,18 @@
 
 ;; ===================== CORE LANGUAGE =====================
 ;; this is a core of the language. We need "desugar" to add more operations
-(define-type ArithC
-  [numC (n : number)]
-  [plusC (l : ArithC) (r : ArithC)]
-  [multC (l : ArithC) (r : ArithC)]
+(define-type ExprC
+ [numC (n : number)]
+ [idC (s : symbol)]
+ [appC (fun : symbol) (arg : ExprC)]
+ [plusC (l : ExprC) (r : ExprC)]
+ [multC (l : ExprC) (r : ExprC)]
 )
 
+
+(define-type FunDefC
+  [fdC (name : symbol) (arg : symbol) (body : ExprC)]
+)
 
 ;; ======================== PARSER =====================
 ;; converts an s-expression into the surface language (ArithS).
@@ -35,14 +41,50 @@
 
 ;; ===================== INTERPRETER ====================
 ;; evaluates the core language ArithC into a number.
-(define (interp [a : ArithC]) : number
-  (type-case ArithC a
+(define (interp [e : ExprC] [fds : (listof FunDefC)]) : number
+  (type-case ExprC e
     [numC (n) n]
-    [plusC (l r) (+ (interp l) (interp r))]
-    [multC (l r) (* (interp l) (interp r))]
+    ;;[boolC (b) (if b 1 0)]
+    [idC (_) (error 'interp "shouldn't get here")]
+    [appC (f a) (local ([define fd (get-fundef f fds)])
+                  (interp (subst a
+                                 (fdC-arg fd)
+                                 (fdC-body fd))
+                          fds))]
+    [plusC (l r) (+ (interp l fds) (interp r fds))]
+    [multC (l r) (* (interp l fds) (interp r fds))]
+    ;;[andC (l r) (if l (if r 1 0) 0)]
+    ;;[notC (b) (if b 0 1)]
   )
 )
 
+;; subst : ExprC * symbol * ExprC-> ExprC
+;; The first argument is what we want to replace the name with
+;; The second is for what name we want to perform substitution
+;; The third is in which expression we want to do it.
+
+;; its helps us to make a step from formal attributes of the functions
+;; to the realy used ones (when function was called)
+(define (subst [what : ExprC] [for : symbol] [in : ExprC]) : ExprC
+  (type-case ExprC in
+    [numC (n) in]
+    [idC (s) (cond
+               [(symbol=? s for) what]
+               [else in])]
+    [appC (f a) (appC f (subst what for a))]
+    [plusC (l r) (plusC (subst what for l)
+                        (subst what for r))]
+    [multC (l r) (multC (subst what for l)
+                        (subst what for r))]
+  )
+)
+
+(define (get-fundef [n : symbol] [fds : (listof FunDefC)]) : FunDefC
+ (cond
+ [(empty? fds) (error 'get-fundef "reference to undefined function")]
+ [(cons? fds) (cond
+ [(equal? n (fdC-name (first fds))) (first fds)]
+ [else (get-fundef n (rest fds))])]))
 
 
 ;; ================== SURFACE LANGUAGE =================
@@ -54,8 +96,9 @@
   [uminusS (e : ArithS)]
   [ifS (guard : ArithS) (tCase : ArithS) (fCase : ArithS)]
 )
+
 ;; ====================== DESUGAR =====================
-(define (desugar [as : ArithS]) : ArithC
+(define (desugar [as : ArithS]) : ExprC
   (type-case ArithS as
     [numS (n) (numC n)]
     [plusS (l r) (plusC (desugar l) (desugar r))]
@@ -65,10 +108,6 @@
     [ifS (g t e) (if (zero? (interp (desugar g))) (desugar t) (desugar e))]
   )
 )
-
-
-;;(define-type FunDefC
-;;  [fdC (name : symbol) (arg : symbol) (body : ExprC)])
 
 
 ;; ================= PIPELINE / ENTRY POINT =================
