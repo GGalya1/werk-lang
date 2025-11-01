@@ -20,6 +20,12 @@
 (define (parse [s : s-expression]) : ArithS
   (cond
     [(s-exp-number? s) (numS (s-exp->number s))]
+
+    [(s-exp-symbol? s)
+      (case (s-exp->symbol s)
+        [(true) (numS 1)]
+        [(false) (numS 0)]
+        [else (error 'parse "invalid symbol input")])]
     
     [(s-exp-list? s)
      (let ([sl (s-exp->list s)])
@@ -68,6 +74,7 @@
 (define (subst [what : ExprC] [for : symbol] [in : ExprC]) : ExprC
   (type-case ExprC in
     [numC (n) in]
+    ;;[boolC (b) in]
     [idC (s) (cond
                [(symbol=? s for) what]
                [else in])]
@@ -95,6 +102,8 @@
   [multS (l : ArithS) (r : ArithS)]
   [uminusS (e : ArithS)]
   [ifS (guard : ArithS) (tCase : ArithS) (fCase : ArithS)]
+  [andS (l : ArithS) (r : ArithS)]
+  [notS (n : ArithS)]
 )
 
 ;; ====================== DESUGAR =====================
@@ -106,6 +115,8 @@
     [bminusS (l r) (plusC (desugar l) (multC (numC -1) (desugar r)))]
     [uminusS (e) (multC (numC -1) (desugar e))]
     [ifS (g t e) (if (zero? (interp (desugar g) empty)) (desugar t) (desugar e))]
+    [andS (l r) (if (zero? (interp (desugar l) empty)) (numC 0) (if (zero? (interp (desugar r) empty)) (numC 0) (numC 1)))]
+    [notS (n) (if (zero? (interp (desugar n) empty)) (numC 1) (numC 0))]
   )
 )
 
