@@ -8,6 +8,7 @@
  [appC (fun : symbol) (arg : ExprC)]
  [plusC (l : ExprC) (r : ExprC)]
  [multC (l : ExprC) (r : ExprC)]
+ [ifC (g : ExprC) (t : ExprC) (f : ExprC)]
 )
 
 
@@ -47,7 +48,7 @@
 
 ;; ===================== INTERPRETER ====================
 ;; evaluates the core language ArithC into a number.
-(define (interp [e : ExprC] [env: Env] [fds : (listof FunDefC)]) : number
+(define (interp [e : ExprC] [env : Env] [fds : (listof FunDefC)]) : number
   (type-case ExprC e
     [numC (n) n]
     ;;[boolC (b) (if b 1 0)]
@@ -60,6 +61,7 @@
                           fds))]
     [plusC (l r) (+ (interp l env fds) (interp r env fds))]
     [multC (l r) (* (interp l env fds) (interp r env fds))]
+    [ifC (g t f) (if (zero? (interp g env fds)) (interp t env fds) (interp f env fds))]
     ;;[andC (l r) (if l (if r 1 0) 0)]
     ;;[notC (b) (if b 0 1)]
   )
@@ -92,6 +94,7 @@
                         (subst what for r))]
     [multC (l r) (multC (subst what for l)
                         (subst what for r))]
+    [ifC (g t f) (ifC (subst what for g) (subst what for t) (subst what for f))]
   )
 )
 
@@ -111,8 +114,8 @@
   [multS (l : ArithS) (r : ArithS)]
   [uminusS (e : ArithS)]
   [ifS (guard : ArithS) (tCase : ArithS) (fCase : ArithS)]
-  [andS (l : ArithS) (r : ArithS)]
-  [notS (n : ArithS)]
+  ;; [andS (l : ArithS) (r : ArithS)]
+  ;; [notS (n : ArithS)]
 )
 
 ;; ====================== DESUGAR =====================
@@ -123,9 +126,9 @@
     [multS (l r) (multC (desugar l) (desugar r))]
     [bminusS (l r) (plusC (desugar l) (multC (numC -1) (desugar r)))]
     [uminusS (e) (multC (numC -1) (desugar e))]
-    [ifS (g t e) (if (zero? (interp (desugar g) empty)) (desugar t) (desugar e))]
-    [andS (l r) (if (zero? (interp (desugar l) empty)) (numC 0) (if (zero? (interp (desugar r) empty)) (numC 0) (numC 1)))]
-    [notS (n) (if (zero? (interp (desugar n) empty)) (numC 1) (numC 0))]
+    [ifS (g t f) (ifC (desugar g) (desugar t) (desugar f))]
+    ;; [andS (l r) (if (zero? (interp (desugar l) empty)) (numC 0) (if (zero? (interp (desugar r) empty)) (numC 0) (numC 1)))]
+    ;; [notS (n) (if (zero? (interp (desugar n) empty)) (numC 1) (numC 0))]
   )
 )
 
@@ -147,7 +150,7 @@
 
 ;; ================= PIPELINE / ENTRY POINT =================
 (define (run [sexp : s-expression]) : number
-  (interp ( desugar (parse sexp)) empty))
+  (interp ( desugar (parse sexp)) mt-env empty))
 
 
 ;; ======================== TESTS ===========================
