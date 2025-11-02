@@ -47,22 +47,31 @@
 
 ;; ===================== INTERPRETER ====================
 ;; evaluates the core language ArithC into a number.
-(define (interp [e : ExprC] [fds : (listof FunDefC)]) : number
+(define (interp [e : ExprC] [env: Env] [fds : (listof FunDefC)]) : number
   (type-case ExprC e
     [numC (n) n]
     ;;[boolC (b) (if b 1 0)]
-    [idC (_) (error 'interp "shouldn't get here")]
+    [idC (n) (lookup n env)]
     [appC (f a) (local ([define fd (get-fundef f fds)])
-                  (interp (subst a
-                                 (fdC-arg fd)
-                                 (fdC-body fd))
+                  (interp (fdC-body fd)
+                           (extend-env (bind (fdC-arg fd)
+ (interp a env fds))
+ env)
                           fds))]
-    [plusC (l r) (+ (interp l fds) (interp r fds))]
-    [multC (l r) (* (interp l fds) (interp r fds))]
+    [plusC (l r) (+ (interp l env fds) (interp r env fds))]
+    [multC (l r) (* (interp l env fds) (interp r env fds))]
     ;;[andC (l r) (if l (if r 1 0) 0)]
     ;;[notC (b) (if b 0 1)]
   )
 )
+
+ (define (lookup [for : symbol] [env : Env]) : number
+ (cond
+   [(empty? env) (error 'lookup "name not found")]
+   [else (cond
+           [(symbol=? for (bind-name (first env)))
+            (bind-val (first env))]
+           [else (lookup for (rest env))])]))
 
 ;; subst : ExprC * symbol * ExprC-> ExprC
 ;; The first argument is what we want to replace the name with
@@ -119,6 +128,21 @@
     [notS (n) (if (zero? (interp (desugar n) empty)) (numC 1) (numC 0))]
   )
 )
+
+;; =====================  ENVIRONMENT ======================
+
+
+(define-type Binding
+  [bind (name : symbol) (val : number)]
+ )
+;; Map connecting names with it values
+(define-type-alias Env (listof Binding))
+
+;; start point
+(define mt-env empty)
+
+;; add new binding to map
+(define extend-env cons)
 
 
 ;; ================= PIPELINE / ENTRY POINT =================
