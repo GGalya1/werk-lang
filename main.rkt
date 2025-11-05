@@ -9,6 +9,9 @@
  [plusC (l : ExprC) (r : ExprC)]
  [multC (l : ExprC) (r : ExprC)]
  [ifC (g : ExprC) (t : ExprC) (f : ExprC)]
+ [boolC (b : boolean)]
+ [andC (l : ExprC) (r : ExprC)]
+ [notC (e : ExprC)]
 )
 
 
@@ -24,8 +27,8 @@
 
     [(s-exp-symbol? s)
       (case (s-exp->symbol s)
-        [(true) (numS 1)]
-        [(false) (numS 0)]
+        [(true) (boolS #t)]
+        [(false) (boolS #f)]
         [else (error 'parse "invalid symbol input")])]
     
     [(s-exp-list? s)
@@ -39,6 +42,8 @@
 
                 )]
          [(if) (ifS (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
+         [(and) (andS (parse (second sl)) (parse (third sl)))]
+         [(not) (notS (parse (second sl)))]
          [else (error 'parse "invalid list input")]))]
     
     [else (error 'parse "invalid input")]
@@ -48,10 +53,10 @@
 
 ;; ===================== INTERPRETER ====================
 ;; evaluates the core language ArithC into a number.
-(define (interp [e : ExprC] [env : Env] [fds : (listof FunDefC)]) : number
+(define (interp [e : ExprC] [env : Env] [fds : (listof FunDefC)]) : Value
   (type-case ExprC e
-    [numC (n) n]
-    ;;[boolC (b) (if b 1 0)]
+    [numC (n) (numV n)]
+    [boolC (b) (boolV b)]
     [idC (n) (lookup n env)]
     [appC (f a) (local ([define fd (get-fundef f fds)])
                   (interp (fdC-body fd)
@@ -62,8 +67,8 @@
     [plusC (l r) (+ (interp l env fds) (interp r env fds))]
     [multC (l r) (* (interp l env fds) (interp r env fds))]
     [ifC (g t f) (if (zero? (interp g env fds)) (interp t env fds) (interp f env fds))]
-    ;;[andC (l r) (if l (if r 1 0) 0)]
-    ;;[notC (b) (if b 0 1)]
+    [andC (l r) (if (eq? (interp l env fds) #f) #f (interp r env fds))]
+    [notC (e) (if (eq? (interp e env fds) #f) #t #f)]
   )
 )
 
@@ -75,6 +80,11 @@
             (bind-val (first env))]
            [else (lookup for (rest env))])]))
 
+(define-type Value 
+  [numV (n : number)]
+  [boolV (b : boolean)]
+)
+
 ;; subst : ExprC * symbol * ExprC-> ExprC
 ;; The first argument is what we want to replace the name with
 ;; The second is for what name we want to perform substitution
@@ -85,7 +95,7 @@
 (define (subst [what : ExprC] [for : symbol] [in : ExprC]) : ExprC
   (type-case ExprC in
     [numC (n) in]
-    ;;[boolC (b) in]
+    [boolC (b) in]
     [idC (s) (cond
                [(symbol=? s for) what]
                [else in])]
@@ -95,6 +105,9 @@
     [multC (l r) (multC (subst what for l)
                         (subst what for r))]
     [ifC (g t f) (ifC (subst what for g) (subst what for t) (subst what for f))]
+    [andC (l r) (andC (subst what for l)
+                        (subst what for r))]
+    [notC (e) (notC (subst what for e))]
   )
 )
 
@@ -109,26 +122,28 @@
 ;; ================== SURFACE LANGUAGE =================
 (define-type ArithS
   [numS (n : number)]
+  [boolS (b : boolean)]
   [plusS (l : ArithS) (r : ArithS)]
   [bminusS (l : ArithS) (r : ArithS)]
   [multS (l : ArithS) (r : ArithS)]
   [uminusS (e : ArithS)]
   [ifS (guard : ArithS) (tCase : ArithS) (fCase : ArithS)]
-  ;; [andS (l : ArithS) (r : ArithS)]
-  ;; [notS (n : ArithS)]
+  [andS (l : ArithS) (r : ArithS)]
+  [notS (n : ArithS)]
 )
 
 ;; ====================== DESUGAR =====================
 (define (desugar [as : ArithS]) : ExprC
   (type-case ArithS as
     [numS (n) (numC n)]
+    [boolS (b) (boolC b)]
     [plusS (l r) (plusC (desugar l) (desugar r))]
     [multS (l r) (multC (desugar l) (desugar r))]
     [bminusS (l r) (plusC (desugar l) (multC (numC -1) (desugar r)))]
     [uminusS (e) (multC (numC -1) (desugar e))]
     [ifS (g t f) (ifC (desugar g) (desugar t) (desugar f))]
-    ;; [andS (l r) (if (zero? (interp (desugar l) empty)) (numC 0) (if (zero? (interp (desugar r) empty)) (numC 0) (numC 1)))]
-    ;; [notS (n) (if (zero? (interp (desugar n) empty)) (numC 1) (numC 0))]
+    [andS (l r) (andC (desugar l) (desugar r))]
+    [notS (n) (notC (desugar n))]
   )
 )
 
